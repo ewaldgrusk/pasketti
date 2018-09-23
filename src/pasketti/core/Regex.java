@@ -101,7 +101,7 @@ public abstract class Regex<T> {
    * Checks that the specified array of elements does not contain any null
    * elements.
    *
-   * <p><em>Note:</em> This method does not check that the provided array itself
+   * <p><em>Note:</em> This helper method does not check that the array itself
    * is not {@code null}.
    *
    * @param  <U>    the type of the array elements
@@ -111,7 +111,6 @@ public abstract class Regex<T> {
   private static <U> U[] requireNonNullElements(U[] array) {
     for (int k = 0; k < array.length; k += 1) {
       if (array[k] == null) {
-        // Null checking is so much fun.
         throw new NullPointerException(
             String.format("element at index %d may not be null", k)
         );
@@ -237,14 +236,15 @@ public abstract class Regex<T> {
     }
 
     private Choice(Regex<T> regex1, Regex<T> regex2) {
-      this(regex1, regex2, regex1.active || regex2.active);
+      this(regex1, regex2, false);
     }
 
     @Override public Regex<T> step(boolean mark, T value) {
-      return new Choice<T>(
-          regex1.shift(mark, value),
-          regex2.shift(mark, value)
-      );
+      Regex<T>
+        r1 = regex1.shift(mark, value),
+        r2 = regex2.shift(mark, value);
+
+      return new Choice<T>(r1, r2, r1.active || r2.active);
     }
   }
 
@@ -265,14 +265,15 @@ public abstract class Regex<T> {
     }
 
     private Concat(Regex<T> regex1, Regex<T> regex2) {
-      this(regex1, regex2, regex1.active || regex2.active);
+      this(regex1, regex2, false);
     }
 
     @Override public Regex<T> step(boolean mark, T value) {
-      return new Concat<T>(
-          regex1.shift(mark, value),
-          regex2.shift(regex1.matched || (mark && regex1.empty), value)
-      );
+      Regex<T>
+        r1 = regex1.shift(mark, value),
+        r2 = regex2.shift(regex1.matched || (mark && regex1.empty), value);
+
+      return new Concat<T>(r1, r2, r1.active || r2.active);
     }
   }
 
@@ -287,11 +288,13 @@ public abstract class Regex<T> {
     }
 
     private Repetition(Regex<T> regex) {
-      this(regex, regex.active);
+      this(regex, false);
     }
 
     @Override public Regex<T> step(boolean mark, T value) {
-      return new Repetition<T>(regex.shift(mark || regex.matched, value));
+      Regex<T> r = regex.shift(mark || regex.matched, value);
+
+      return new Repetition<T>(r, r.active);
     }
   }
 }
