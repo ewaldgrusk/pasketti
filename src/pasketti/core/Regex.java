@@ -168,8 +168,25 @@ public abstract class Regex<T> {
   }
 
   /**
-   * Returns a regular expression that matches what zero or more consecutive
-   * occurrences of the provided regular expression would match.
+   * Returns a regular expression that matches what zero or <em>one</em>
+   * consecutive occurrences of the provided regular expression would match.
+   *
+   * <p>The operation {@code optional} is usually denoted by a question mark,
+   * i.e. {@code <regex>?}.
+   *
+   * @param  <T>    the type of the symbols
+   * @param  regex  a regular expression (may not be {@code null})
+   * @return        the regular expression {@code <regex>?}
+   */
+  public static <T> Regex<T> optional(Regex<T> regex) {
+    Objects.requireNonNull(regex, "regex may not be null");
+
+    return new Choice<T>(regex, epsilon());
+  }
+
+  /**
+   * Returns a regular expression that matches what zero or <em>more</em>
+   * consecutive occurrences of the provided regular expression would match.
    *
    * <p>The operation {@code repetition} is also known as Kleene closure. It is
    * usually denoted by an asterisk, i.e. {@code <regex>*}.
