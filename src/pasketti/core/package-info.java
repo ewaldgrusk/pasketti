@@ -6,6 +6,6 @@
  * Regular Expressions</a> by Sebastian Fischer, Frank Huch, and Thomas Wilke.
  *
  * @author Nora Gruner
- * @version 0.1.0 (2018-09-21)
+ * @version 0.1.2 (2018-09-23)
  */
 package pasketti.core;

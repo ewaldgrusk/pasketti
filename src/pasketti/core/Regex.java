@@ -13,12 +13,18 @@ import java.util.function.Predicate;
  */
 public abstract class Regex<T> {
 
+  private final boolean active;
   private final boolean empty;
   private final boolean matched;
 
-  private Regex(boolean empty, boolean matched) {
-    this.empty = empty;
+  private Regex(boolean active, boolean empty, boolean matched) {
+    this.active  = active;
+    this.empty   = empty;
     this.matched = matched;
+  }
+
+  public final boolean isActive() {
+    return active;
   }
 
   public final boolean isEmpty() {
@@ -29,7 +35,11 @@ public abstract class Regex<T> {
     return matched;
   }
 
-  public abstract Regex<T> shift(boolean mark, T value);
+  public final Regex<T> shift(boolean mark, T value) {
+    return (active || mark) ? step(mark, value) : this;
+  }
+
+  public abstract Regex<T> step(boolean mark, T value);
 
 
   //----------------------------------------------------------------------------
@@ -183,10 +193,10 @@ public abstract class Regex<T> {
   private static final class Epsilon<T> extends Regex<T> {
 
     private Epsilon() {
-      super(true, false);
+      super(false, true, false);
     }
 
-    @Override public Regex<T> shift(boolean mark, T value) {
+    @Override public Regex<T> step(boolean mark, T value) {
       return this; // My job here is done.
     }
   }
@@ -195,8 +205,8 @@ public abstract class Regex<T> {
 
     private final Predicate<T> predicate;
 
-    private Symbol(Predicate<T> predicate, boolean matched) {
-      super(false, matched);
+    private Symbol(Predicate<T> predicate, boolean active) {
+      super(active, false, active);
 
       this.predicate = predicate;
     }
@@ -205,7 +215,7 @@ public abstract class Regex<T> {
       this(predicate, false);
     }
 
-    @Override public Regex<T> shift(boolean mark, T value) {
+    @Override public Regex<T> step(boolean mark, T value) {
       return new Symbol<T>(predicate, mark && predicate.test(value));
     }
   }
@@ -215,17 +225,22 @@ public abstract class Regex<T> {
     private final Regex<T> regex1;
     private final Regex<T> regex2;
 
-    private Choice(Regex<T> regex1, Regex<T> regex2) {
+    private Choice(Regex<T> regex1, Regex<T> regex2, boolean active) {
       super(
+          active,
           regex1.empty || regex2.empty,
-          regex1.matched || regex2.matched
+          active && (regex1.matched || regex2.matched)
       );
 
       this.regex1 = regex1;
       this.regex2 = regex2;
     }
 
-    @Override public Regex<T> shift(boolean mark, T value) {
+    private Choice(Regex<T> regex1, Regex<T> regex2) {
+      this(regex1, regex2, regex1.active || regex2.active);
+    }
+
+    @Override public Regex<T> step(boolean mark, T value) {
       return new Choice<T>(
           regex1.shift(mark, value),
           regex2.shift(mark, value)
@@ -238,17 +253,22 @@ public abstract class Regex<T> {
     private final Regex<T> regex1;
     private final Regex<T> regex2;
 
-    private Concat(Regex<T> regex1, Regex<T> regex2) {
+    private Concat(Regex<T> regex1, Regex<T> regex2, boolean active) {
       super(
+          active,
           regex1.empty && regex2.empty,
-          regex2.matched || (regex1.matched && regex2.empty)
+          active && (regex2.matched || (regex1.matched && regex2.empty))
       );
 
       this.regex1 = regex1;
       this.regex2 = regex2;
     }
 
-    @Override public Regex<T> shift(boolean mark, T value) {
+    private Concat(Regex<T> regex1, Regex<T> regex2) {
+      this(regex1, regex2, regex1.active || regex2.active);
+    }
+
+    @Override public Regex<T> step(boolean mark, T value) {
       return new Concat<T>(
           regex1.shift(mark, value),
           regex2.shift(regex1.matched || (mark && regex1.empty), value)
@@ -260,13 +280,17 @@ public abstract class Regex<T> {
 
     private final Regex<T> regex;
 
-    private Repetition(Regex<T> regex) {
-      super(true, regex.matched);
+    private Repetition(Regex<T> regex, boolean active) {
+      super(active, true, active && regex.matched);
 
       this.regex = regex;
     }
 
-    @Override public Regex<T> shift(boolean mark, T value) {
+    private Repetition(Regex<T> regex) {
+      this(regex, regex.active);
+    }
+
+    @Override public Regex<T> step(boolean mark, T value) {
       return new Repetition<T>(regex.shift(mark || regex.matched, value));
     }
   }
